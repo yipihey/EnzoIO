@@ -1,0 +1,4 @@
+name = "EnzoIO"
+uuid = "835a911a-e074-40a7-b1c3-8d13774adfd4"
+authors = ["Tom Abel <tabel@stanford.edu>"]
+version = "0.1.0"
