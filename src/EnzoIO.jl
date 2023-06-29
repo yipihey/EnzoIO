@@ -1,5 +1,5 @@
 module EnzoIO
-    using DelimitedFiles, DataFrames, Serialization, HDF5, Logging, Revise
+    using DelimitedFiles, Serialization, HDF5, Logging, Revise
 
     include("grid.jl")
     include("hierarchy.jl")
