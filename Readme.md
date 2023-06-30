@@ -36,11 +36,6 @@ Please ensure that the tests pass before submitting any pull requests.
 
 ## License
 
-[//]: 
-For a Creative Commons license, you can use this text in your `README.md` file:
-
-## License
-
 Unless otherwise noted, the EnzoIO source files are distributed under the Creative Commons Attribution 4.0 International (CC BY 4.0) license. You are free to use, modify and distribute them under the terms of this license. More details can be found at [https://creativecommons.org/licenses/by/4.0/](https://creativecommons.org/licenses/by/4.0/).
 
 ```
