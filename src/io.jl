@@ -12,13 +12,11 @@ function extractGridNumber(s::AbstractString)
     end
 end
 
-function parse_hierarchy_grid_block(start::Int,stop::Int,file_lines::Vector{String},ngtl::Dict{Int,Int},ngnl::Dict{Int,Int})
+function parse_hierarchy_grid_block(start::Int, stop::Int, file_lines::Vector{String}, ngtl::Dict{Int,Int}, ngnl::Dict{Int,Int})
     #    println(s)
     # Initialize an empty Grid and empty dictionary
     grid_dict = Dict()
-    cg = Grid(0, 0.0, -1, zeros(Int, 3), zeros(Int, 3), 0, 
-        zeros(Int, 3),
-        zeros(Float64, 3), zeros(Float64, 3), 0, 0, "", 0, 0)   
+    cg = Grid()
 
     for ct in start:stop
         line = file_lines[ct]
@@ -43,9 +41,9 @@ function parse_hierarchy_grid_block(start::Int,stop::Int,file_lines::Vector{Stri
             grid_dict[key] = value
         elseif key == "NumberOfBaryonFields" || key == "NumberOfParticles"
             grid_dict[key] = parse(Int, value)
-        elseif occursin("NextGridThisLevel",key)
+        elseif occursin("NextGridThisLevel", key)
             ngtl[extractGridNumber(key)] = parse(Int, value)
-        elseif occursin("NextGridNextLevel",key)
+        elseif occursin("NextGridNextLevel", key)
             ngnl[extractGridNumber(key)] = parse(Int, value)
         end
     end
@@ -66,15 +64,15 @@ function parse_hierarchy_grid_block(start::Int,stop::Int,file_lines::Vector{Stri
 end
 
 function parse_hierarchy_file(filepath; ignore_binary=false)
-# use the optional named keyword ignore_binary=true when debugging the parsing routines.
-# without it we store the parsed file into a a new .hierarchy.bin file which we read instead
-# of the .hierarchy file next time. This can save a lot of time for large hierarchies or slow
-# file systems. 
+    # use the optional named keyword ignore_binary=true when debugging the parsing routines.
+    # without it we store the parsed file into a a new .hierarchy.bin file which we read instead
+    # of the .hierarchy file next time. This can save a lot of time for large hierarchies or slow
+    # file systems. 
     binary_hierarchy = filepath * ".bin"
     if isfile(binary_hierarchy) && !ignore_binary
         println("found " * binary_hierarchy * ". Will read that.")
-        @time grids = deserialize(binary_hierarchy)
-        return grids
+        @time hi = deserialize(binary_hierarchy)
+        return hi
     else
         println("Time to read .hierarchy file:")
         file_lines = readlines(filepath)
@@ -93,11 +91,11 @@ function parse_hierarchy_file(filepath; ignore_binary=false)
         ngtl = Dict{Int,Int}()
         ngnl = Dict{Int,Int}()
         # 
-        block_indices = [(grid_line_nums[i], grid_line_nums[i+1] ) for i in 1:num_grids]
+        block_indices = [(grid_line_nums[i], grid_line_nums[i+1]) for i in 1:num_grids]
 
         for i in 1:num_grids
             indices = block_indices[i]
-            grids[i] = parse_hierarchy_grid_block(indices[1],indices[2],file_lines,ngtl,ngnl)
+            grids[i] = parse_hierarchy_grid_block(indices[1], indices[2], file_lines, ngtl, ngnl)
         end
 
         for i in 1:num_grids  # fill in values that define the tree of grids
@@ -105,23 +103,33 @@ function parse_hierarchy_file(filepath; ignore_binary=false)
             grids[i].ngnl = ngnl[i]
         end
 
+        hi = Hierarchy()
+        hi.grids = grids
         println("Time to set parents:")
-        @time set_parents(grids)
+        @time set_parents(hi)
 
-        set_levels(grids)
+        set_levels(hi)
 
         println("serialize:")
-        serialize(binary_hierarchy, grids) # write parsed version to save time next time 
-        return grids
+        try
+            open(binary_hierarchy, "w") do io
+                serialize(io, hi) # write parsed version to save time next time
+                @info "Wrote " * binary_hierarchy
+            end
+        catch e
+            @warn "An error occurred writing the binary hierachy: " * binary_hierarchy * e
+        end
+
+        return hi
 
     end
 end
 
-function getData(h::Hierarchy, 
+function getData(h::Hierarchy,
     vars::Vector{T};
-    dir = "./",  # directory from which gi.FileName describe the path
-    nan_parent_cells = true, # parent cells that also cover region have values set to NaN
-    ) where {T <: AbstractString}
+    dir="./",  # directory from which gi.FileName describe the path
+    nan_parent_cells=true # parent cells that also cover region have values set to NaN
+) where {T<:AbstractString}
     # This routine sorts the access so that it opens each file only once and opens groups sequentially
     # This is faster than looping over grids and having each of them open and close files, groups. 
     flist = fileListFromHierarchy(h)
@@ -131,30 +139,30 @@ function getData(h::Hierarchy,
         h5open(dir * fnow, "r") do file
             for cg in h.grids[gnums]
                 gstring = "Grid" * string(cg.num, pad=8)
-                g = g_open(file,  gstring)
+                g = g_open(file, gstring)
                 for v in vars
                     gdata = read(g, v)
                     cg.data[v] = gdata
                 end
                 ct += 1
             end
-#        println(fnow, " ", ct, " grids.")
+            #        println(fnow, " ", ct, " grids.")
         end
     end
 end
 
-function getData(cg::Grid, 
+function getData(cg::Grid,
     vars::Vector{T};
-    dir = "./",  # directory from which gi.FileName describe the path
-    nan_parent_cells = true, # parent cells that also cover region have values set to NaN
-    ) where {T <: AbstractString}
+    dir="./",  # directory from which gi.FileName describe the path
+    nan_parent_cells=true # parent cells that also cover region have values set to NaN
+) where {T<:AbstractString}
     flist = [cg.FileName]
     ct = 0
     for fnow in flist
         h5open(dir * fnow, "r") do file
             @info "getData: Opened " * dir * fnow
             gstring = "Grid" * string(cg.num, pad=8)
-            g = g_open(file,  gstring)
+            g = g_open(file, gstring)
             for v in vars
                 gdata = read(g, v)
                 cg.data[v] = gdata
@@ -164,10 +172,10 @@ function getData(cg::Grid,
     end
 end
 
-function list_field_names(cg::Grid; dir = "")
+function list_field_names(cg::Grid; dir="")
     h5open(dir * cg.FileName, "r") do file
         gstring = "Grid" * string(cg.num, pad=8)
-        g = g_open(file,  gstring)
+        g = g_open(file, gstring)
         return names(g)
     end
 end

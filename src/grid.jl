@@ -14,7 +14,11 @@ mutable struct Grid
     FileName::String
     ngnl::Int64
     ngtl::Int64
-    data::Dict()
+    data::Dict{Any,Any}
+
+    Grid() = new(1, 0.0, -1, zeros(Int, 3), zeros(Int, 3), 0,
+        zeros(Int, 3),
+        zeros(Float64, 3), zeros(Float64, 3), 0, 0, "", 0, 0, Dict())
 end
 
 import Base.getindex
@@ -24,16 +28,16 @@ function fcoord(cg::Grid, ax)
     # always calculate all the coordinates (while we are at it)
     # just return the diffferent parts if called with x, y, or z instead of xyz. 
     ind = findfirst(ax, "xyz")[1]
-    local dx = (cg.RightEdge .- cg.LeftEdge)/cg.Dimension
+    local dx = (cg.RightEdge .- cg.LeftEdge) / cg.Dimension
     ct = 1
     td = Dict()
-    xyz = zeros(cg.Dimension... , 3)
+    xyz = zeros(cg.Dimension..., 3)
     @inbounds for i in 1:cg.Dimension[1]
         @inbounds for j in 1:cg.Dimension[2]
             @inbounds for k in 1:cg.Dimension[3]
-                xyz[i,j,k,1] = (i .- 0.5) * dx[1] + cg.LeftEdge[1]
-                xyz[i,j,k,2] = (j .- 0.5) * dx[2] + cg.LeftEdge[2]
-                xyz[i,j,k,3] = (k .- 0.5) * dx[3] + cg.LeftEdge[3]
+                xyz[i, j, k, 1] = (i .- 0.5) * dx[1] + cg.LeftEdge[1]
+                xyz[i, j, k, 2] = (j .- 0.5) * dx[2] + cg.LeftEdge[2]
+                xyz[i, j, k, 3] = (k .- 0.5) * dx[3] + cg.LeftEdge[3]
                 ct += 1
             end
         end
@@ -43,16 +47,16 @@ function fcoord(cg::Grid, ax)
     if ax == ""
         return
     elseif ax == "x"
-        return cg.data["xyz"][:,1]    
+        return cg.data["xyz"][:, 1]
     elseif ax == "y"
-        return cg.data["xyz"][:,2]    
+        return cg.data["xyz"][:, 2]
     elseif ax == "z"
-        return cg.data["xyz"][:,3]    
+        return cg.data["xyz"][:, 3]
     elseif ax == "xyz"
         return cg.data["xyz"]
-    else 
+    else
         @warn "fccord: " * string(cg.num) * " called with ax=" * ax * " different from x,y,z,xyz"
-        return 
+        return
     end
 end
 
@@ -79,7 +83,7 @@ function getindex(grid::Grid, key::String)
     elseif key in keys(data_func_dict)
         # Here, `data_func_dict[key]` will give you the corresponding function,
         # and `(data_func_dict[key])(grid)` will call that function with `grid` as the argument.
-        return (data_func_dict[key])(grid,key)
+        return (data_func_dict[key])(grid, key)
     else
         error("Key $key not found in grid data or in function dictionary. You may want to call getData first.")
     end
